@@ -1,0 +1,21 @@
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
+    reviewers: []
+    ignore:
+      - dependency-name: "actions/checkout"
+        update-types: ["version-update:semver-major"]

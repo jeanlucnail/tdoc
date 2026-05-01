@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on all shell files
+        run: |
+          find . -name "*.sh" -not -path "./.git/*" | sort | while read -r f; do
+            echo "Checking: $f"
+            shellcheck --severity=warning --shell=bash "$f"
+          done
+          shellcheck --severity=warning --shell=bash tdoc
+
+  syntax:
+    name: Bash Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate bash syntax on all shell files
+        run: |
+          FAILED=0
+          find . -name "*.sh" -not -path "./.git/*" | sort | while read -r f; do
+            if ! bash -n "$f" 2>&1; then
+              echo "❌ Syntax error: $f"
+              FAILED=1
+            else
+              echo "✅ $f"
+            fi
+          done
+          bash -n tdoc && echo "✅ tdoc" || { echo "❌ tdoc"; FAILED=1; }
+          exit $FAILED
+
+  version:
+    name: Version Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check VERSION file matches latest CHANGELOG entry
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          CHANGELOG_VERSION=$(grep -m1 "^## \[" CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
+
+          echo "VERSION file   : $VERSION"
+          echo "CHANGELOG top  : $CHANGELOG_VERSION"
+
+          if [[ "$VERSION" != "$CHANGELOG_VERSION" ]]; then
+            echo "❌ VERSION ($VERSION) does not match top CHANGELOG entry ($CHANGELOG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version consistent"
+
+  lang:
+    name: Language Key Completeness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check all EN keys exist in ID lang file
+        run: |
+          EN_KEYS=$(grep -oP '^L_\w+' lang/en.sh | sort)
+          ID_KEYS=$(grep -oP '^L_\w+' lang/id.sh | sort)
+
+          MISSING=$(comm -23 <(echo "$EN_KEYS") <(echo "$ID_KEYS"))
+
+          if [[ -n "$MISSING" ]]; then
+            echo "❌ Keys in en.sh but missing from id.sh:"
+            echo "$MISSING"
+            exit 1
+          fi
+          echo "✅ All EN keys present in ID lang file"
+
+  archive:
+    name: Archive Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build tar.gz and verify
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          ARCHIVE="tdoc-v${VERSION}.tar.gz"
+
+          tar -czf "$ARCHIVE" \
+            tdoc \
+            install.sh \
+            uninstall.sh \
+            core/ \
+            modules/ \
+            lang/ \
+            man/ \
+            data/ \
+            README.md \
+            CHANGELOG.md \
+            LICENSE \
+            CONTRIBUTING.md \
+            SECURITY.md \
+            CODE_OF_CONDUCT.md \
+            VERSION
+
+          sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
+
+          echo "✅ Archive built: $ARCHIVE"
+          echo "✅ SHA256: $(cat ${ARCHIVE}.sha256)"
+
+          # Verify the archive is extractable
+          tar -tzf "$ARCHIVE" > /dev/null
+          echo "✅ Archive integrity OK"
