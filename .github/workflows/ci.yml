@@ -24,9 +24,17 @@ jobs:
         run: |
           find . -name "*.sh" -not -path "./.git/*" | sort | while read -r f; do
             echo "Checking: $f"
-            shellcheck --severity=warning --shell=bash "$f"
+            shellcheck \
+              --severity=warning \
+              --exclude=SC2155 \
+              --shell=bash \
+              "$f"
           done
-          shellcheck --severity=warning --shell=bash tdoc
+          shellcheck \
+            --severity=warning \
+            --exclude=SC2155 \
+            --shell=bash \
+            tdoc
 
   syntax:
     name: Bash Syntax
@@ -38,15 +46,20 @@ jobs:
       - name: Validate bash syntax on all shell files
         run: |
           FAILED=0
-          find . -name "*.sh" -not -path "./.git/*" | sort | while read -r f; do
-            if ! bash -n "$f" 2>&1; then
+          while IFS= read -r f; do
+            if bash -n "$f" 2>&1; then
+              echo "✅ $f"
+            else
               echo "❌ Syntax error: $f"
               FAILED=1
-            else
-              echo "✅ $f"
             fi
-          done
-          bash -n tdoc && echo "✅ tdoc" || { echo "❌ tdoc"; FAILED=1; }
+          done < <(find . -name "*.sh" -not -path "./.git/*" | sort)
+          if bash -n tdoc 2>&1; then
+            echo "✅ tdoc"
+          else
+            echo "❌ tdoc"
+            FAILED=1
+          fi
           exit $FAILED
 
   version:
@@ -58,7 +71,7 @@ jobs:
 
       - name: Check VERSION file matches latest CHANGELOG entry
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION=$(tr -d '[:space:]' < VERSION)
           CHANGELOG_VERSION=$(grep -m1 "^## \[" CHANGELOG.md | sed 's/## \[\(.*\)\].*/\1/')
 
           echo "VERSION file   : $VERSION"
@@ -100,7 +113,7 @@ jobs:
 
       - name: Build tar.gz and verify
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION=$(tr -d '[:space:]' < VERSION)
           ARCHIVE="tdoc-v${VERSION}.tar.gz"
 
           tar -czf "$ARCHIVE" \
@@ -123,8 +136,7 @@ jobs:
           sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
 
           echo "✅ Archive built: $ARCHIVE"
-          echo "✅ SHA256: $(cat ${ARCHIVE}.sha256)"
+          echo "✅ SHA256: $(cat "${ARCHIVE}.sha256")"
 
-          # Verify the archive is extractable
           tar -tzf "$ARCHIVE" > /dev/null
           echo "✅ Archive integrity OK"

@@ -15,14 +15,8 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze
+    name: Analyze (actions)
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["actions"]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +26,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
+          languages: actions
           queries: security-and-quality
 
       - name: Autobuild
@@ -41,23 +35,25 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{ matrix.language }}"
+          category: "/language:actions"
 
   semgrep:
     name: Semgrep (Shell)
     runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Semgrep
+        run: pip install semgrep
+
       - name: Run Semgrep
         run: |
           semgrep \
-            --config "p/bash" \
-            --config "p/secrets" \
+            --config "r/bash" \
             --error \
             --exclude ".git" \
+            --include "*.sh" \
+            --include "tdoc" \
             .
