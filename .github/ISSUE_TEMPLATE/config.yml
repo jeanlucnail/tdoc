@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: "📖 Documentation & README"
+    url: https://github.com/djunekz/tdoc/blob/main/README.md
+    about: "Read the full documentation before opening an issue."
+
+  - name: "📋 Changelog"
+    url: https://github.com/djunekz/tdoc/blob/main/CHANGELOG.md
+    about: "Check if your issue or feature is already addressed in a recent release."
+
+  - name: "🔒 Security Vulnerability"
+    url: https://github.com/djunekz/tdoc/blob/main/SECURITY.md
+    about: "Please report security issues privately. Do NOT open a public issue."
+
+  - name: "💬 General Questions & Discussions"
+    url: https://github.com/djunekz/tdoc/discussions
+    about: "For questions that are not bugs or feature requests, use Discussions instead."
