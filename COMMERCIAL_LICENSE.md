@@ -1,6 +1,6 @@
 # TDOC Commercial License
 
-Copyright (c) 2026 TDOC Contributors
+Copyright (c) 2026 Djunekz
 
 This license applies to organizations or individuals who wish to use TDOC
 in a commercial, proprietary, or closed-source product beyond the scope of
@@ -14,7 +14,7 @@ Commercial use includes but is not limited to:
 A separate commercial license agreement is required.
 
 To obtain a commercial license, please contact:
-tdoc.project@proton.me
+[Contact Support](gab288.gab288@passinbox.com)
 
 Without a commercial license, TDOC is provided only under the terms of
 the MIT License.
