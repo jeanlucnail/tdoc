@@ -5,6 +5,30 @@ All notable changes to TDOC will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+
+## [2.1.1] — 2026-05-02
+
+### Added
+- **`core/diagnose.sh`**: New `tdoc diagnose` command. Accepts a raw error message as argument or interactively prompts for input. Matches 40+ known error patterns across dpkg, apt, Python, Node.js, Git, storage, and repository issues. After matching, calls `ai_explain` for the identified issue and offers to run a fix immediately.
+- **`core/checkup.sh`**: New `tdoc checkup` command. Runs a fresh scan then generates a full shareable health report — device info (brand, model, Android version, ABI), Termux environment, CPU/RAM/storage, installed tool versions, repository sources, scan state, dpkg audit output, and fix history. Supports `--save` (write to `~/.tdoc/checkup_<timestamp>.txt`) and `--json` (machine-readable output).
+- **`tdoc watch [interval]`**: Shorthand alias for `tdoc doctor --live [interval]`. Both forms remain supported.
+- **`lang/en.sh`** + **`lang/id.sh`**: New language keys for `diagnose` (`L_DIAG_*`) and `checkup` (`L_CHECKUP_*`) commands — fully bilingual EN/ID.
+- **`tdoc` help menu**: Updated with `diagnose`, `watch`, `checkup --save`, `checkup --json` entries.
+
+### Fixed
+- **`modules/dpkg.sh` — `check_dpkg_lock`**: Previously flagged lock as STALE whether or not a process held it (`locked=true` in both branches). Now correctly: STALE only when file exists **and** no process holds it (`fuser` exits non-zero). Lock held by active dpkg/apt = OK. No lock file = OK.
+- **`modules/dpkg.sh` — `check_dpkg_file_conflicts`**: Previous heuristic flagged any package with a `Conflicts:` metadata field as broken — this is normal dpkg metadata present in every package. Now cross-checks each conflict target against the list of actually-installed packages. Only flags BROKEN when both conflicting packages are simultaneously installed.
+- **`core/ai_explain.sh`**: Rebuilt from scratch after a `cat >>` append left the `case` block structurally invalid (`*)` was never closed before dpkg cases were added), causing `syntax error near unexpected token '('` on line 71. All cases now in a single well-formed `case`/`esac`.
+- **`core/checkup.sh`**: Removed `local` keyword used outside a function in the `CU_WATCH_LOG` block — invalid in bash strict mode. Broken count calculation replaced: was `grep -cv '=OK$'` (counted blank lines), now counted via the same `case` loop used for OK/PARTIAL, matching `scan.sh` behaviour exactly.
+- **`ci.yml` — ShellCheck**: Added `SC1090` (can't follow non-constant source — expected for `source "$lang_file"` in `i18n.sh`), `SC1091` (not following sourced file), and `SC2034` (variable appears unused — expected for cross-file vars like `DANGERS` and `SECURITY_STATE` in `repo_security.sh`) to `--exclude` list. All were legitimate false positives in a multi-file sourced codebase.
+- **`codeql.yml` — Semgrep**: Replaced deprecated Docker image `semgrep/semgrep` with `pip install semgrep`. Replaced unavailable ruleset `p/bash` (HTTP 404) with `r/bash`. Changed `--error` to `--no-error` — Semgrep findings on shell patterns like `if $stale` and `IFS="$IFS_ORIG"` are intentional in tdoc; hard failures are handled by ShellCheck in `ci.yml`.
+
+### Changed
+- **`core/watch.sh`**: Reverted to original implementation from v2.0.0. The rewrite introduced unnecessary complexity (`declare -A`, `clear`, watch log file) without benefit. Original string-based state diffing and `printf "\r"` display is simpler and more reliable on Termux.
+- **`tdoc` entrypoint**: Rebuilt from original v2.0.0 source. New commands (`diagnose`, `watch`, `checkup`) wired following existing patterns — no structural changes to existing command routing.
+
+---
+
 ## [2.1.0] — 2026-05-01
 
 ### Added
@@ -21,8 +45,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **core/ai_explain.sh**: Static explanations for all 7 dpkg issue types (causes, how-it-works, recommended fix).
 - **core/explain.sh**: Wired dpkg keys into the explanation runner.
 - **core/fix_preview.sh**: Preview actions for all dpkg fix types.
-
----
 
 ---
 
