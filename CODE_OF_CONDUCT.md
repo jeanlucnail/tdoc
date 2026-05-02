@@ -66,7 +66,7 @@ public spaces.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported by contacting the project maintainers at:
 
-📧 **djunekz@protonmail.com**
+📧 **gab288.gab288@passinbox.com**
 
 All complaints will be reviewed and investigated promptly and fairly.
 All project maintainers are obligated to respect the privacy and security of
