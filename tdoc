@@ -27,8 +27,10 @@ print_help() {
   echo -e "  ${BOLD}Diagnosis:${RESET}"
   echo -e "  ${GREEN}tdoc scan${RESET}                  $(t L_SCAN_HEADER)"
   echo -e "  ${GREEN}tdoc repo-scan [path]${RESET}      $(t L_REPO_SCAN_HEADER)"
-  echo -e "  ${GREEN}tdoc diagnose <error>${RESET}      $(t L_DIAG_HEADER)"
-  echo -e "  ${GREEN}tdoc diagnose -f <file>${RESET}    $(t L_DIAG_HEADER)"
+  echo -e "  ${GREEN}tdoc repo-fix${RESET}              Fix issues found by repo-scan"
+  echo -e "  ${GREEN}tdoc repo-fix --preview${RESET}    Preview repo fixes (dry-run)"
+  echo -e "  ${GREEN}tdoc repo-fix --auto${RESET}       Auto-fix repo issues"
+  echo -e "  ${GREEN}tdoc diagnose [error]${RESET}      $(t L_DIAG_HEADER)"
   echo -e "  ${GREEN}tdoc diagnose --last${RESET}       $(t L_DIAG_FROM_LAST_SCAN)"
   echo -e "  ${GREEN}tdoc status${RESET}                $(t L_STATUS_HEADER)"
   echo -e "  ${GREEN}tdoc explain${RESET}               $(t L_EXPLAIN_HEADER)"
@@ -71,6 +73,7 @@ case "$cmd" in
   version|-v|--version) source "$TDOC_ROOT/core/ui_version.sh"; tdoc_version_ui ;;
   scan)      source "$TDOC_ROOT/core/scan.sh" ;;
   repo-scan) shift; source "$TDOC_ROOT/core/repo_scan.sh" "${1:-$PWD}" ;;
+  repo-fix)  shift; source "$TDOC_ROOT/core/repo_fix.sh" "${1:-}" ;;
   diagnose)  shift; source "$TDOC_ROOT/core/diagnose.sh" "$@" ;;
   status)
     [[ -f "$TDOC_ROOT/core/status.sh" ]] || { echo "$(t L_STATUS_NO_STATE)"; exit 1; }

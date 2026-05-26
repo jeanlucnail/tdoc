@@ -252,16 +252,29 @@ _diag_run() {
   if [[ "${1:-}" == "-f" ]]; then
     local file="${2:-}"
     if [[ -z "$file" ]]; then
-      print_err "$(t L_DIAG_NO_FILE)"
-      print_info "Usage: tdoc diagnose -f <logfile>"
+      print_err "No file specified. Usage: tdoc diagnose -f <logfile>"
       exit 1
     fi
     if [[ ! -f "$file" ]]; then
-      print_err "$(t L_DIAG_FILE_NOT_FOUND): $file"
+      print_err "File not found: $file"
       exit 1
     fi
-    echo -e "${BOLD}$(t L_DIAG_FROM_FILE): ${file}${RESET}"
+
+    local fname; fname=$(basename "$file")
+    local ext="${fname##*.}"
+
+    echo -e "${BOLD}Diagnosing from file: ${file}${RESET}"
     echo
+
+    case "$ext" in
+      md|txt|rst|pdf|html|json|yml|yaml|toml)
+        echo -e "${YELLOW}${ICON_WARN} Note: '$fname' looks like a documentation/config file, not an error log.${RESET}"
+        echo -e "${GRAY}  tdoc diagnose -f works best with: .log .out .err crash logs, or pasted error output.${RESET}"
+        echo -e "${GRAY}  For code issues, use: tdoc repo-scan${RESET}"
+        echo
+        ;;
+    esac
+
     spinner_start "$(t L_DIAG_ANALYZING)..."
     sleep 0.3
     spinner_stop
