@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.2] — 2026-05-27
+
+### Added
+- **`core/repo_fix.sh`** — Entrypoint for `tdoc repo-fix`, `tdoc repo-fix --auto`, `tdoc repo-fix --preview`. Reads structured state from `~/.tdoc/repo_fix_state.env` written by `repo-scan` and dispatches to per-issue fix handlers.
+- **`core/fix_repo.sh`** — Fix handler library for all repo-scan issue types. Each issue has three handlers: `fix_repo_<KEY>` (interactive), `auto_fix_repo_<KEY>` (non-interactive), and preview string in `repo_fix.sh`. Fixable automatically: `InvalidJSON` (reformat), `UnpinnedDep` (pip freeze), `LangKeyMissing` (stub from en.sh), `LangKeyOrphan` (remove), `MakefileSpace` (sed tabs), `MissingSourceGuard` (insert guard). Manual-only: `ShellSyntax`, `PythonSyntax`, `UndefCall`, `BrokenMdLink`, `UnrefFunc`, `UnrefModule`.
+- **`core/repo_scan.sh` v2** — Extended with 4 new audit sections beyond syntax checking: (7) language file key sync (`lang/en.sh` vs all other lang files — missing keys and orphan keys); (8) `t()` call audit (every `t L_KEY` call in every `.sh` file cross-checked against `lang/en.sh` — flags undefined keys with file and line number); (9) missing source guards (scripts using `$TDOC_ROOT` or `$PREFIX` without `: "${VAR:?}"` guard); structured state output — each issue now written to `~/.tdoc/repo_fix_state.env` as `KEY=BROKEN:filepath:lineno` for consumption by `repo_fix.sh`.
+- **`tdoc repo-fix`**, **`tdoc repo-fix --preview`**, **`tdoc repo-fix --auto`** — New top-level commands wired in `tdoc` entrypoint.
+- **`core/diagnose.sh`** — `-f` flag now detects documentation/config file extensions (`.md`, `.txt`, `.json`, `.yml`, etc.) and warns the user that `diagnose -f` is designed for error logs, not source files — with a redirect hint to `tdoc repo-scan`.
+- **`lang/en.sh`** + **`lang/id.sh`** — New keys: `L_REPO_FIX_*` (40 keys), `L_REPO_SCAN_LANG_SYNC`, `L_REPO_SCAN_LANG_MISSING_KEY`, `L_REPO_SCAN_LANG_ORPHAN_KEY`, `L_REPO_SCAN_TKEY_SYNC`, `L_REPO_SCAN_TKEY_MISSING`, `L_REPO_SCAN_SOURCE_GUARD`, `L_REPO_SCAN_NO_GUARD`, `L_REPO_SCAN_FIX_HINT`, `L_REPO_SCAN_AUTOFIX_HINT`.
+- **`tdoc` help menu** — Added `repo-fix`, `repo-fix --preview`, `repo-fix --auto` entries. Hardcoded strings used for new command descriptions to avoid `L_KEY` fallback on fresh installs before lang files are updated.
+
+### Fixed
+- **`tdoc` help menu — `L_CHECKUP_HEADER` fallback**: Key was added to `checkup.sh` but not to the lang files shipped with the repo. Help menu now uses hardcoded `"Full Checkup Report"` to prevent `L_CHECKUP_HEADER` literal from appearing on fresh installs.
+- **`core/diagnose.sh` — `-f` with non-log file**: Previously ran silently and returned "no match" when given a `.md`, `.json`, or similar file — confusing because there was no error, just nothing detected. Now shows a clear warning with file extension, explains what `-f` is for, and redirects to `tdoc repo-scan`.
+
+---
+
 ## [2.2.0] — 2026-05-15
 
 ### Added
@@ -39,7 +56,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   BUILD_DATE=2026-05-15
   ```
   This file is now the **single source of truth** for all version metadata. Updating a release only requires editing `VERSION` — no changes to `version.sh`, `ui_version.sh`, or any other file needed.
-
 - **`core/ui_version.sh`** — Removed 8 duplicate color variable declarations (`BOLD`, `DIM`, `CYAN`, `GREEN`, `YELLOW`, `RESET`, `BORDER`, `ICON_INFO`) that were redefined locally instead of sourcing `ui.sh`. Now sources `ui.sh` like every other core file, ensuring color consistency if `ui.sh` is ever updated. Border width corrected to 42 characters matching the rest of TDOC. `Codename` and `Build` lines are conditionally shown — only printed when the value is non-empty, so a minimal `VERSION` file with only `VERSION=x.y.z` still renders cleanly.
 - **`install.sh`** — Added explicit copy of `VERSION` file to `$INSTALL_DIR/VERSION` via `install -Dm644`. Previously `VERSION` was never copied during installation, causing `version.sh` to fall back to hardcoded values at runtime and `tdoc version` to always show the old version even after an update. Added `tdoc diagnose` and `tdoc diagnose -f <log>` to the post-install commands list.
 - **`core/diagnose.sh`** — Fully rewritten. Previous version accepted error text as CLI arguments (`tdoc diagnose <text>`), which caused bash to crash on special characters like `![]()` before the script even started. New behaviour:
@@ -74,12 +90,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`modules/dpkg.sh` — `check_dpkg_file_conflicts`**: Previous heuristic flagged any package with a `Conflicts:` metadata field as broken — this is normal dpkg metadata present in every package. Now cross-checks each conflict target against the list of actually-installed packages. Only flags BROKEN when both conflicting packages are simultaneously installed.
 - **`core/ai_explain.sh`**: Rebuilt from scratch after a `cat >>` append left the `case` block structurally invalid (`*)` was never closed before dpkg cases were added), causing `syntax error near unexpected token '('` on line 71. All cases now in a single well-formed `case`/`esac`.
 - **`core/checkup.sh`**: Removed `local` keyword used outside a function in the `CU_WATCH_LOG` block — invalid in bash strict mode. Broken count calculation replaced: was `grep -cv '=OK$'` (counted blank lines), now counted via the same `case` loop used for OK/PARTIAL, matching `scan.sh` behaviour exactly.
-- **`ci.yml` — ShellCheck**: Added `SC1090` (can't follow non-constant source — expected for `source "$lang_file"` in `i18n.sh`), `SC1091` (not following sourced file), and `SC2034` (variable appears unused — expected for cross-file vars like `DANGERS` and `SECURITY_STATE` in `repo_security.sh`) to `--exclude` list. All were legitimate false positives in a multi-file sourced codebase.
-- **`codeql.yml` — Semgrep**: Replaced deprecated Docker image `semgrep/semgrep` with `pip install semgrep`. Replaced unavailable ruleset `p/bash` (HTTP 404) with `r/bash`. Changed `--error` to `--no-error` — Semgrep findings on shell patterns like `if $stale` and `IFS="$IFS_ORIG"` are intentional in tdoc; hard failures are handled by ShellCheck in `ci.yml`.
+- **`ci.yml` — ShellCheck**: Added `SC1090`, `SC1091`, and `SC2034` to `--exclude` list. All were legitimate false positives in a multi-file sourced codebase.
+- **`codeql.yml` — Semgrep**: Replaced deprecated Docker image `semgrep/semgrep` with `pip install semgrep`. Replaced unavailable ruleset `p/bash` (HTTP 404) with `r/bash`. Changed `--error` to `--no-error`.
 
 ### Changed
-- **`core/watch.sh`**: Reverted to original implementation from v2.0.0. The rewrite introduced unnecessary complexity (`declare -A`, `clear`, watch log file) without benefit. Original string-based state diffing and `printf "\r"` display is simpler and more reliable on Termux.
-- **`tdoc` entrypoint**: Rebuilt from original v2.0.0 source. New commands (`diagnose`, `watch`, `checkup`) wired following existing patterns — no structural changes to existing command routing.
+- **`core/watch.sh`**: Reverted to original implementation from v2.0.0.
+- **`tdoc` entrypoint**: Rebuilt from original v2.0.0 source. New commands (`diagnose`, `watch`, `checkup`) wired following existing patterns.
 
 ---
 

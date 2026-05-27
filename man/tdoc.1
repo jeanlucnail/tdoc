@@ -1,4 +1,4 @@
-.TH TDOC 1 "January 2026" "TDOC 1.0.2" "Termux Utilities"
+.TH TDOC 1 "May 2026" "TDOC 2.2.0" "Termux Utilities"
 .SH NAME
 tdoc \- Termux Doctor, diagnostic and repair utility for Termux environment
 
@@ -11,60 +11,122 @@ tdoc \- Termux Doctor, diagnostic and repair utility for Termux environment
 (Termux Doctor) is a diagnostic and repair utility for the Termux environment.
 It scans the system for common configuration issues, missing components,
 repository problems, and provides guided fixes.
+It also scans project repositories for syntax errors, code bugs, language key
+mismatches, unreferenced modules, and other structural issues.
 
 TDOC is designed to be safe, transparent, and fully compatible with the
 Termux package ecosystem.
 
 .SH COMMANDS
+
+.SS Diagnosis
 .TP
 .B scan
-Run a full Termux system scan. If the current directory is a project folder
-(contains .git, Dockerfile, package.json, etc.), TDOC also automatically
-runs a full code scan on the repository.
+Run a full Termux system scan. Checks storage, repository, Python, Node.js,
+Git, Termux environment, and dpkg health. If the current directory is a
+project folder (contains .git, Dockerfile, package.json, etc.), TDOC also
+automatically runs a full code scan on the repository.
 
 .TP
-.B repo-scan
-Scan the current project folder (or $HOME if not inside a project) for
-syntax errors, bugs, deprecated patterns, and traceback logs across all
-supported file types:
+.B repo-scan [\fIpath\fR]
+Scan a project folder for syntax errors, bugs, deprecated patterns, and
+structural issues. Defaults to the current directory. Supported checks:
 .RS
 .IP \(bu 2
-\fBPython\fR (.py) — SyntaxError via py_compile
+\fBShell/Bash\fR (.sh .bash) \(em bash -n syntax check + ShellCheck (if installed)
 .IP \(bu 2
-\fBShell/Bash\fR (.sh .bash) — syntax check via bash -n / sh -n
+\fBPython\fR (.py) \(em SyntaxError / IndentationError via py_compile
 .IP \(bu 2
-\fBPerl\fR (.pl) — syntax check via perl -c
+\fBJavaScript\fR (.js .mjs) \(em node --check
 .IP \(bu 2
-\fBJavaScript\fR (.js .mjs) — syntax check via node --check
+\fBYAML\fR (.yml .yaml) \(em PyYAML safe-load
 .IP \(bu 2
-\fBYAML\fR (.yml .yaml) — parse check including GitHub Actions workflows
+\fBJSON\fR (.json) \(em json.load validation
 .IP \(bu 2
-\fBJSON\fR (.json) — parse validation
+\fBTOML\fR (.toml) \(em tomllib / tomli validation
 .IP \(bu 2
-\fBTOML\fR (.toml) — parse validation via tomllib
+\fBDockerfile\fR \(em missing FROM, deprecated instructions
 .IP \(bu 2
-\fBDockerfile\fR — lint for deprecated instructions and common mistakes
+\fBrequirements.txt\fR \(em unpinned dependencies
 .IP \(bu 2
-\fBrequirements.txt\fR — unpinned deps and format errors
+\fBpackage.json\fR \(em unpinned npm dependencies
 .IP \(bu 2
-\fBMakefile\fR — TAB indentation enforcement
+\fBMakefile\fR \(em TAB vs spaces enforcement
 .IP \(bu 2
-\fBMarkdown\fR (.md) — frontmatter and broken link detection
+\fBMarkdown\fR (.md) \(em broken relative links
 .IP \(bu 2
-\fBLog files\fR (.log .out .err) — traceback/error pattern detection
+\fBLog files\fR (.log .out .err) \(em traceback/error pattern detection
+.IP \(bu 2
+\fBLang key sync\fR \(em missing/orphan keys between lang/en.sh and other lang files
+.IP \(bu 2
+\fBt() key audit\fR \(em t() calls in .sh files cross-checked against lang/en.sh
+.IP \(bu 2
+\fBSource guards\fR \(em scripts using $TDOC_ROOT/$PREFIX without :?guard
+.IP \(bu 2
+\fBUnreferenced functions\fR \(em defined but never called from other files
+.IP \(bu 2
+\fBUnreferenced modules\fR \(em .sh files never sourced anywhere
+.IP \(bu 2
+\fBUndefined calls\fR \(em check_*/fix_* called but never defined
 .RE
+Results are saved to ~/.tdoc/repo_fix_state.env for use by repo-fix.
 
 .TP
-.B version
-Display TDOC version, codename, and build information.
+.B repo-fix [\fI--auto\fR|\fI--preview\fR]
+Fix issues found by the last repo-scan run. Reads structured state from
+~/.tdoc/repo_fix_state.env. Without flags, prompts interactively for each
+fixable issue.
+.RS
+.TP
+.B --preview
+Show what actions would be performed without making any changes.
+.TP
+.B --auto
+Apply all automatable fixes without prompting.
+.RE
+Automatically fixable: InvalidJSON (reformat), UnpinnedDep (pip freeze),
+LangKeyMissing (stub from en.sh), LangKeyOrphan (remove), MakefileSpace
+(convert spaces to tabs), MissingSourceGuard (insert guard).
+Manual-only: ShellSyntax, PythonSyntax, UndefCall, BrokenMdLink,
+UnrefFunc, UnrefModule.
+
+.TP
+.B diagnose [\fI-f\fR \fIlogfile\fR]
+Diagnose an error by pasting it interactively or reading from a file.
+.RS
+.TP
+.B (no arguments)
+Prompts for multi-line input. Paste error message, traceback, or tdoc
+repo-scan output. Submit with an empty line.
+.TP
+.B -f \fIlogfile\fR
+Read error text from a file. Works best with .log, .out, .err files.
+For source/documentation files, use tdoc repo-scan instead.
+.TP
+.B --last
+Diagnose the output of the last tdoc repo-scan run automatically.
+.RE
+When network is available, sends input to the AI engine for structured
+diagnosis (DIAGNOSIS, ROOT CAUSE, HOW TO FIX, PREVENTION). Falls back to
+40+ static pattern matcher when offline.
+
+.TP
+.B status
+Show last scan status from the state file.
 
 .TP
 .B explain
-Explain detected problems and their causes.
+Explain detected problems and their causes interactively.
 
 .TP
+.B check \fIpackage\fR
+Ad-hoc status check for any Termux package — checks binary availability,
+dpkg status, and apt-cache info.
+
+.SS Fix
+.TP
 .B fix
-Attempt to fix detected issues interactively.
+Attempt to fix detected Termux system issues interactively.
 
 .TP
 .B fix --preview
@@ -72,16 +134,41 @@ Show what actions would be performed without making changes.
 
 .TP
 .B fix --auto
-Automatically fix detected issues without prompting.
+Automatically fix detected Termux system issues without prompting.
+
+.SS Report
+.TP
+.B checkup [\fI--save\fR|\fI--json\fR]
+Generate a full shareable health report: device info, Android version,
+Termux environment, CPU/RAM/storage, installed tool versions, repository
+sources, scan state, dpkg audit, and fix history.
+.RS
+.TP
+.B --save
+Save report to ~/.tdoc/checkup_<timestamp>.txt
+.TP
+.B --json
+Output report in machine-readable JSON format.
+.RE
 
 .TP
-.B report
-Print raw scan results from the last system scan.
+.B history
+Display scan and fix history from ~/.tdoc/report.json.
 
 .TP
 .B doctor --json
-Output diagnostic information in JSON format.
+Output full diagnostic information in JSON format.
 
+.TP
+.B doctor --json-ai
+Output diagnostic information with AI-generated analysis in JSON format.
+
+.TP
+.B doctor --live [\fIseconds\fR]
+Continuous monitoring mode. Re-scans every N seconds (default: 60) and
+notifies via termux-notification on status changes. Same as tdoc watch.
+
+.SS Security
 .TP
 .B security
 Analyze repository security and configuration.
@@ -90,26 +177,57 @@ Analyze repository security and configuration.
 .B security --json
 Output repository security analysis in JSON format.
 
+.SS Tools
+.TP
+.B watch [\fIseconds\fR]
+Alias for tdoc doctor --live. Monitors system health continuously and
+alerts on state changes. Minimum interval: 10 seconds.
+
+.TP
+.B benchmark
+Measure storage write speed, network latency to Termux mirrors, and
+CPU/RAM information.
+
+.TP
+.B lang list
+List all available display languages and show the currently active one.
+
+.TP
+.B lang set \fIcode\fR
+Set and persist the display language (e.g.
+.B en
+or
+.BR id ).
+Saved to ~/.tdoc/config.
+
+.TP
+.B version
+Display TDOC version, codename, and build date.
+
 .TP
 .B update
-Display instructions for updating TDOC via the Termux package manager.
+Display instructions for updating TDOC via git or the Termux package manager.
 
 .TP
 .B help
 Display help information.
 
 .SH OPTIONS
-Most commands do not require additional options.
-Some commands support flags such as
-.BR --json ,
-.BR --preview ,
-and
-.BR --auto .
+.TP
+.B --lang \fIcode\fR
+One-shot language override for a single command without saving.
+Example:
+.B tdoc --lang id scan
 
 .SH FILES
 .TP
 .I $PREFIX/lib/tdoc/
-TDOC core files.
+TDOC core files (core/, modules/, lang/, data/, man/).
+
+.TP
+.I $PREFIX/lib/tdoc/VERSION
+Version metadata file (KEY=VALUE format). Single source of truth for
+TDOC_VERSION, TDOC_CODENAME, TDOC_BUILD_DATE.
 
 .TP
 .I $PREFIX/bin/tdoc
@@ -119,24 +237,95 @@ TDOC executable.
 .I $PREFIX/share/man/man1/tdoc.1
 Manual page.
 
+.TP
+.I $PREFIX/var/lib/tdoc/state.env
+Last system scan state (KEY=VALUE pairs).
+
+.TP
+.I ~/.tdoc/config
+Persistent user configuration (e.g. TDOC_LANG=id).
+
+.TP
+.I ~/.tdoc/report.json
+Scan and fix history in JSON format.
+
+.TP
+.I ~/.tdoc/repo_fix_state.env
+Structured repo-scan results consumed by tdoc repo-fix.
+Format: KEY=BROKEN:filepath:lineno
+
+.TP
+.I ~/.tdoc/repo_scan_last.txt
+Plain-text output of the last repo-scan for use by tdoc diagnose --last.
+
 .SH EXIT STATUS
 .TP
 .B 0
 Success.
-
 .TP
 .B 1
-General error or invalid command.
+General error, invalid command, or file not found.
+.TP
+.B 127
+TDOC core directory not found at $PREFIX/lib/tdoc.
 
 .SH EXAMPLES
 .TP
-Run system diagnostics:
+Run full system diagnostics:
 .RS
-.B tdoc status
+.B tdoc scan
 .RE
 
 .TP
-Automatically fix detected problems:
+Scan current project for code issues:
+.RS
+.B tdoc repo-scan
+.RE
+
+.TP
+Preview what repo-fix would do:
+.RS
+.B tdoc repo-fix --preview
+.RE
+
+.TP
+Auto-fix all fixable repo issues:
+.RS
+.B tdoc repo-fix --auto
+.RE
+
+.TP
+Diagnose an error interactively:
+.RS
+.B tdoc diagnose
+.RE
+
+.TP
+Diagnose from a log file:
+.RS
+.B tdoc diagnose -f /tmp/app_crash.log
+.RE
+
+.TP
+Diagnose last repo-scan output:
+.RS
+.B tdoc diagnose --last
+.RE
+
+.TP
+Generate a full health report and save it:
+.RS
+.B tdoc checkup --save
+.RE
+
+.TP
+Monitor system health every 30 seconds:
+.RS
+.B tdoc watch 30
+.RE
+
+.TP
+Automatically fix detected Termux system problems:
 .RS
 .B tdoc fix --auto
 .RE
@@ -145,6 +334,12 @@ Automatically fix detected problems:
 Get JSON output for scripting:
 .RS
 .B tdoc doctor --json
+.RE
+
+.TP
+Run in Bahasa Indonesia for one command:
+.RS
+.B tdoc --lang id scan
 .RE
 
 .SH AUTHOR
@@ -156,4 +351,6 @@ MIT License.
 .SH SEE ALSO
 .BR apt (8),
 .BR pkg (1),
-.BR termux-change-repo (1)
+.BR dpkg (1),
+.BR termux-change-repo (1),
+.BR bash (1)
